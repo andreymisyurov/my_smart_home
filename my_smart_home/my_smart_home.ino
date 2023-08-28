@@ -6,10 +6,13 @@
 #include <util/delay.h>
 #include <SPI.h>
 #include <Ethernet.h>
+#include <PubSubClient.h>
 #include "ping.h"
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress phoneIP(192, 168, 1, 118);
+EthernetClient ethClient;
+PubSubClient mqttClient(ethClient);
 
 bool isOnline();
 
@@ -21,13 +24,26 @@ void setup() {
   PORTD |= (1 << LOCK_PIN);
 
   int check = Ethernet.begin(mac);
+
+  mqttClient.setServer("broker.hivemq.com", 1883);
+  if (mqttClient.connect("YOUR_UNIQUE_CLIENT_ID")) {
+      Serial.println("Connected to MQTT Broker!");
+  } else {
+      Serial.println("Failed to connect to MQTT Broker.");
+  }
+
 }
 
 void loop() {
-    bool gercon_state = (bool)(PIND & (1 << LOCK_PIN)) == 0;
+
+  mqttClient.loop();
+
+    bool gercon_state = (PIND & (1 << LOCK_PIN)) == 0;
     if(0 == isOnline()) {
       if(0 == gercon_state) {
         PORTD |= (1 << LED_PIN);
+        mqttClient.publish("GABELLA", "Hello from Arduino!");
+        Serial.println("I did it!");
       } else {
         PORTD &= ~(1 << LED_PIN);
       }
