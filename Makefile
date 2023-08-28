@@ -1,13 +1,13 @@
-all: comp obj firm
+all: compile to_hex upload
 
-comp:
+compile:
 	avr-gcc -mmcu=atmega328p -Os -o main.elf main.c
 
-obj:
+to_hex:
 	avr-objcopy -O ihex -R .eeprom main.elf main.hex
 
-firm:
+upload:
 	avrdude -c arduino -p atmega328p -P /dev/ttyUSB0 -b 115200 -U flash:w:main.hex
 
-tool:
+install_tools:
 	sudo apt install gcc-avr avr-libc avrdude
