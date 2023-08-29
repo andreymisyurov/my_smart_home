@@ -164,7 +164,6 @@ static bool waitForSocket(SOCKET socket, uint32_t timeOut) {
 
 static SOCKET getFreeSocket() {
   SOCKET s;
-
   SPI.beginTransaction(SPI_ETHERNET_SETTINGS);
   for (s = 0; s < MAX_SOCK_NUM; ++s) {
     uint8_t status = W5100.readSnSR(s);
