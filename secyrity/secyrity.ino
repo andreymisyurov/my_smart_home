@@ -5,6 +5,7 @@
 #define F_CPU 16000000UL
 #define LED_PIN 2
 #define OPEN_PIN 3
+#define SPEAKER_PIN 4
 
 typedef struct Data {
   bool isOnline;
@@ -28,6 +29,7 @@ void setup() {
   server.begin();
 
   DDRD |= (1 << LED_PIN);
+  DDRD |= (1 << SPEAKER_PIN);
   DDRD &= ~(1 << OPEN_PIN);
   PORTD |= (1 << OPEN_PIN);
 
@@ -73,7 +75,15 @@ void TaskLEDAndOpen(void *pvParameters) {
 
   for (;;) {
     data->isOpen = (PIND & (1 << OPEN_PIN)) != 0;
-    data->isOpen ? PORTD |= (1 << LED_PIN) : PORTD &= ~(1 << LED_PIN);
+    if(false == data->isOpen) {
+      PORTD &= ~(1 << LED_PIN);
+      noTone(SPEAKER_PIN);
+    } else {
+      if (false == data->isOnline) {
+        tone(SPEAKER_PIN, 500);
+      }
+      PORTD |= (1 << LED_PIN);
+    }
     // (data->isOpen && data->isOnline) ? PORTD |= (1 << LED_PIN) : PORTD &= ~(1 << LED_PIN);
     vTaskDelay(281 / portTICK_PERIOD_MS);
   }
@@ -146,9 +156,9 @@ void TaskMessage(void *pvParameters) {
   for(;;){
     if( ((data->isOpen) && (data->isLock)) ||
         ((data->isOpen) && (data->isOnline) == 0) ) {
-          if(sendAlarmMessage() == 0) {
-            vTaskDelay(3600000);
-          }
+          // if(sendAlarmMessage() == 0) {
+            // vTaskDelay(3600000);
+          // }
     }
     vTaskDelay(418 / portTICK_PERIOD_MS);
   }
