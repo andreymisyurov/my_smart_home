@@ -1,3 +1,15 @@
+/*
+ * Smart Home Security System
+ *
+ * Developed for Arduino UNO with FreeRTOS.
+ *
+ * This program monitors the state of a door, checks the online status of a device, 
+ * provides a web interface to lock or unlock the door, and sends an alarm message 
+ * if the door is opened while locked.
+ *
+ * Author: Andrey Misyurov 2023
+ */
+
 #include <Arduino_FreeRTOS.h>
 #include <Ethernet.h>
 #include "ping.h"
@@ -7,26 +19,27 @@
 #define OPEN_PIN 3
 #define SPEAKER_PIN 4
 
+// Data structure to hold various system states
 typedef struct Data {
-  bool isOnline;
-  bool isOpen;
-  bool isLock;
+  bool isOnline :1; // Flag to check if a owner's phone is online
+  bool isOpen   :1; // Flag to check if the door is open
+  bool isLock   :1; // Flag to check if the door is locked
 } Data ;
 
 Data params = {1, 0, 0};
 EthernetServer server(80);
 
-void TaskLEDAndOpen(void *pvParameters);
-
-void TaskPing(void *pvParameters);
-void TaskLock(void *pvParameters);
-void TaskMessage(void *pvParameters);
+void TaskLEDAndOpen(void *pvParam);
+void TaskPing(void *pvParam);
+void TaskLock(void *pvParam);
+void TaskMessage(void *pvParam);
 
 void setup() {
-
-  byte mac[] PROGMEM = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-  Ethernet.begin(mac);
   server.begin();
+
+  const byte mac[] PROGMEM = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+  const byte ip[] PROGMEM = {192, 168, 1, 100};
+  Ethernet.begin(mac, ip);
 
   DDRD |= (1 << LED_PIN);
   DDRD |= (1 << SPEAKER_PIN);
@@ -70,8 +83,9 @@ void setup() {
 
 void loop(){ }
 
-void TaskLEDAndOpen(void *pvParameters) {
-  Data *data = (Data*)pvParameters;
+// Task to manage LED status, read door status and siren manage
+void TaskLEDAndOpen(void *pvParam) {
+  Data *data = (Data*)pvParam;
 
   for (;;) {
     data->isOpen = (PIND & (1 << OPEN_PIN)) != 0;
@@ -84,28 +98,27 @@ void TaskLEDAndOpen(void *pvParameters) {
       }
       PORTD |= (1 << LED_PIN);
     }
-    // (data->isOpen && data->isOnline) ? PORTD |= (1 << LED_PIN) : PORTD &= ~(1 << LED_PIN);
     vTaskDelay(281 / portTICK_PERIOD_MS);
   }
 }
 
-void TaskPing(void *pvParameters) {
+// Task to check the online status of a owner's phone using ping
+void TaskPing(void *pvParam) {
   IPAddress PROGMEM phoneIP(192, 168, 1, 2);
-  Data *data = (Data*)pvParameters;
+  Data *data = (Data*)pvParam;
   for (;;) {
     data->isOnline = ping(phoneIP) >= 0;
     vTaskDelay(10042 / portTICK_PERIOD_MS);
   }
 }
 
-
-void TaskLock(void *pvParameters) {
-  Data *data = (Data*)pvParameters;
+// Task to handle HTTP requests to lock/unlock the door
+void TaskLock(void *pvParam) {
+  Data *data = (Data*)pvParam;
   
   for (;;) {
     EthernetClient client = server.available();
     if (client) {
-      PORTD |= (1 << LED_PIN);
       if (client.available()) {
         String request = client.readStringUntil('\r');
         client.flush();
@@ -135,8 +148,9 @@ void TaskLock(void *pvParameters) {
   }
 }
 
-void TaskMessage(void *pvParameters) {
-  Data *data = (Data*)pvParameters;
+// Task to send alarm messages if the door is opened while locked
+void TaskMessage(void *pvParam) {
+  Data *data = (Data*)pvParam;
   EthernetClient ethClient;
   const IPAddress PROGMEM serverIP(35, 205, 211, 191);
 
@@ -154,11 +168,10 @@ void TaskMessage(void *pvParameters) {
   };
 
   for(;;){
-    if( ((data->isOpen) && (data->isLock)) ||
-        ((data->isOpen) && (data->isOnline) == 0) ) {
-          // if(sendAlarmMessage() == 0) {
-            // vTaskDelay(3600000);
-          // }
+    if(data->isOpen && data->isLock) {
+          if(sendAlarmMessage() == 0) {
+            vTaskDelay(3600000);
+          }
     }
     vTaskDelay(418 / portTICK_PERIOD_MS);
   }
