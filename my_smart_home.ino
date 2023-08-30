@@ -31,8 +31,6 @@ void setup() {
   DDRD &= ~(1 << OPEN_PIN);
   PORTD |= (1 << OPEN_PIN);
 
-
-
   xTaskCreate(
     TaskLEDAndOpen
     ,  "LEDAndOpen"
@@ -65,6 +63,7 @@ void setup() {
     ,  1
     ,  NULL );
     
+    vTaskStartScheduler();
 }
 
 void loop(){ }
@@ -81,11 +80,11 @@ void TaskLEDAndOpen(void *pvParameters) {
 }
 
 void TaskPing(void *pvParameters) {
-  IPAddress PROGMEM phoneIP(192, 168, 1, 118);
+  IPAddress PROGMEM phoneIP(192, 168, 1, 2);
   Data *data = (Data*)pvParameters;
   for (;;) {
     data->isOnline = ping(phoneIP) >= 0;
-    vTaskDelay(1042 / portTICK_PERIOD_MS);
+    vTaskDelay(10042 / portTICK_PERIOD_MS);
   }
 }
 
@@ -122,7 +121,7 @@ void TaskLock(void *pvParameters) {
       }
     }
     
-    vTaskDelay(100);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
